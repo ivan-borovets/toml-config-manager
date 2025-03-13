@@ -1,0 +1,30 @@
+# Venv
+.venv/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.mypy_cache/
+.ruff_cache/
+
+# IDE Specific
+.idea/
+.vscode/
+
+# Test artifacts
+.coverage
+htmlcov/
+
+# Documentation and non-essential files
+docs/
+LICENSE
+logo.jpg
+
+# Local environment
+.env*

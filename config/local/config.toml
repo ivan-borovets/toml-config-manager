@@ -1,0 +1,19 @@
+# PostgreSQL
+[postgres]
+USER = "local-postgres"
+PASSWORD = "local-changethis"
+DB = "local-app_pgdata"
+HOST = "localhost"
+PORT = 5432
+DRIVER = "psycopg"
+
+# SQLAlchemy
+[sqla]
+ECHO = false
+ECHO_POOL = false
+POOL_SIZE = 50
+MAX_OVERFLOW = 10
+
+# Logs
+[logs]
+LEVEL = "DEBUG"

@@ -1,0 +1,86 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "toml-to-dotenv"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+authors = [
+    { name = "ivan-borovets", email = "130386813+ivan-borovets@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.10.6",
+    "rtoml==0.11.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "coverage==7.6.9",
+    "pytest==8.3.4",
+]
+
+dev = [
+    "bandit==1.8.0",
+    "black==24.10.0",
+    "isort==5.13.2",
+    "mypy==1.15.0",
+    "pre-commit==4.0.1",
+    "pylint==3.3.2",
+    "ruff==0.8.2"
+]
+
+[tool.bandit.assert_used]
+skips = ['*_test.py', '*/test_*.py']
+
+[tool.black]
+line-length = 88
+exclude = 'README\.md'
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+plugins = []
+strict = true
+ignore_missing_imports = true
+allow_subclassing_any = true
+disallow_untyped_defs = false
+
+[tool.pylint.main]
+ignore-paths = ""
+disable = [
+    "C0111", # "missing-docstring"
+    "C0415", # "import-outside-toplevel"
+    "E1101", # "no-member"
+    "R0801", # "duplicate-code"
+    "R0902", # "too-many-instance-attributes"
+    "R0903", # "too-few-public-methods"
+    "R0913", # "too-many-arguments"
+    "R0917", # "too-many-positional-arguments"
+    "R1705", # "no-else-return"
+    "R1711", # "useless-return"
+    "R1720", # "no-else-raise"
+    "W0613", # "unused-argument"
+    "W0706", # "try-except-raise"
+    "W0718", # "broad-exception-caught"
+]
+max-line-length = 88
+
+[tool.ruff]
+line-length = 88
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+disable_warnings = ["no-data-collected"]
+source = ["config"]
+
+[tool.coverage.report]
+omit = [
+    "**/__init__.py",
+]
+show_missing = true
