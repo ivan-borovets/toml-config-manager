@@ -1,8 +1,13 @@
 import logging
 import os
-from typing import Literal, Self
+from typing import Literal, NewType, Self, cast
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    PostgresDsn as PydanticPostgresDsn,
+    field_validator,
+)
 
 from config.toml_config_manager import (
     ENV_VAR_NAME,
@@ -14,6 +19,8 @@ from config.toml_config_manager import (
 
 log = logging.getLogger(__name__)
 
+PostgresDsn = NewType("PostgresDsn", str)
+
 
 class PostgresSettings(BaseModel):
     user: str = Field(alias="USER")
@@ -23,6 +30,14 @@ class PostgresSettings(BaseModel):
     port: int = Field(alias="PORT")
     driver: str = Field(alias="DRIVER")
 
+    @field_validator("host")
+    @classmethod
+    def override_host_from_env(cls, v: str) -> str:
+        postgres_host_env = os.environ.get("POSTGRES_HOST")
+        if postgres_host_env:
+            return postgres_host_env
+        return v
+
     @field_validator("port")
     @classmethod
     def validate_port_range(cls, v: int) -> int:
@@ -31,14 +46,19 @@ class PostgresSettings(BaseModel):
         return v
 
     @property
-    def dsn(self) -> str:
-        return (
-            f"{self.driver}://"
-            f"{self.user}:"
-            f"{self.password}@"
-            f"{self.host}:"
-            f"{self.port}/"
-            f"{self.db}"
+    def dsn(self) -> PostgresDsn:
+        return cast(
+            "PostgresDsn",
+            str(
+                PydanticPostgresDsn.build(
+                    scheme=f"postgresql+{self.driver}",
+                    username=self.user,
+                    password=self.password,
+                    host=self.host,
+                    port=self.port,
+                    path=self.db,
+                ),
+            ),
         )
 
 

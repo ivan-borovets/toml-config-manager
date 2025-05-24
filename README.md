@@ -116,11 +116,11 @@ Makefile commands.
 # pipx ensurepath
 # pipx install uv
 # uv python install 3.12
-uv venv
+uv v
 source .venv/bin/activate
 # .venv\Scripts\activate  # Windows
 # https://docs.astral.sh/uv/getting-started/installation/#shell-autocompletion
-uv pip install -e '.[test,dev]'
+uv pip install -e '.[dev,test]'
 ```
 
 2. See the example how settings are read by the app from `.toml`

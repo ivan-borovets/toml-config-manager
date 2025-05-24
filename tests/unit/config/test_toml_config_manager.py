@@ -34,7 +34,7 @@ def test_validate_logging_level_invalid(level):
 
 
 @pytest.mark.parametrize(
-    "level_str, expected_level",
+    ("level_str", "expected_level"),
     [
         ("DEBUG", logging.DEBUG),
         ("INFO", logging.INFO),
@@ -66,12 +66,10 @@ def test_read_config(tmp_path, monkeypatch):
     result = read_config(env=ValidEnvs.DEV)
     assert result == {"database": {"USER": "postgres", "PORT": 5432}}
 
-    fake_dir_paths = MappingProxyType(
-        {
-            ValidEnvs.DEV: Path("wrong_path"),
-            ValidEnvs.PROD: None,
-        }
-    )
+    fake_dir_paths = MappingProxyType({
+        ValidEnvs.DEV: Path("wrong_path"),
+        ValidEnvs.PROD: None,
+    })
     monkeypatch.setattr("config.toml_config_manager.ENV_TO_DIR_PATHS", fake_dir_paths)
     with pytest.raises(FileNotFoundError):
         read_config(env=ValidEnvs.DEV)
@@ -80,8 +78,8 @@ def test_read_config(tmp_path, monkeypatch):
 
 
 def test_merge_dicts():
-    dict1 = {"a": 1, "b": 2}
-    dict2 = {"b": 3, "c": 4}
+    dict1: dict[str, Any] = {"a": 1, "b": 2}
+    dict2: dict[str, Any] = {"b": 3, "c": 4}
     result = merge_dicts(dict1=dict1, dict2=dict2)
     assert result == {"a": 1, "b": 3, "c": 4}
 
@@ -102,7 +100,7 @@ def test_load_full_config(tmp_path, monkeypatch):
     config_file.write_text('[database]\nUSER = "postgres"\nPORT = 5432\n')
     secrets_file = tmp_path / ".secrets.toml"
     secrets_file.write_text(
-        '[database]\nPASSWORD = "secret"\n[api]\nKEY = "apikey123"\n'
+        '[database]\nPASSWORD = "secret"\n[api]\nKEY = "apikey123"\n',
     )
     fake_dir_paths = MappingProxyType({ValidEnvs.DEV: tmp_path})
     monkeypatch.setattr("config.toml_config_manager.ENV_TO_DIR_PATHS", fake_dir_paths)
@@ -143,7 +141,7 @@ def test_get_env_value_by_export_field():
 
     class UnstringableObject:
         def __str__(self):
-            raise TypeError()
+            raise TypeError
 
     config["database"]["UNSTRINGABLE"] = UnstringableObject()
     with pytest.raises(ValueError):
@@ -198,11 +196,13 @@ def test_write_dotenv_file(tmp_path, monkeypatch):
     fake_dir_paths = MappingProxyType({ValidEnvs.DEV: tmp_path})
     monkeypatch.setattr("config.toml_config_manager.ENV_TO_DIR_PATHS", fake_dir_paths)
     monkeypatch.setattr(
-        "config.toml_config_manager.BASE_DIR_PATH", Path("/fake/base/path")
+        "config.toml_config_manager.BASE_DIR_PATH",
+        Path("/fake/base/path"),
     )
     mock_now = datetime(2023, 1, 1, 12, 0, 0, tzinfo=UTC)
     monkeypatch.setattr(
-        "config.toml_config_manager.datetime", MagicMock(now=lambda tz: mock_now)
+        "config.toml_config_manager.datetime",
+        MagicMock(now=lambda _: mock_now),
     )
 
     write_dotenv_file(env=ValidEnvs.DEV, exported_fields=export_fields)

@@ -17,20 +17,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install uv==0.5.7
-          uv pip install -e '.[test,dev]' --system
+          uv pip install -e '.[dev,test]' --system
           uv pip install pytest-cov --system
 
       - name: Format code
         run: |
-          isort config/ tests/ examples/
-          black config/ tests/ examples/
+          ruff format
 
       - name: Lint code
         run: |
-          bandit -r config/ -c pyproject.toml
-          ruff check config/ tests/ examples/
-          pylint config/ tests/ examples/
-          mypy config/ examples/
+          ruff check --exit-non-zero-on-fix
+          mypy
 
       - name: Test code
         run: |
