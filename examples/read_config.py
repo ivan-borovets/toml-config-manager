@@ -48,7 +48,7 @@ class PostgresSettings(BaseModel):
     @property
     def dsn(self) -> PostgresDsn:
         return cast(
-            "PostgresDsn",
+            PostgresDsn,
             str(
                 PydanticPostgresDsn.build(
                     scheme=f"postgresql+{self.driver}",
