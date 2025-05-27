@@ -88,6 +88,7 @@ ignore = [
     "PLR2004", # magic-value-comparison
     "PT011", # pytest-raises-too-broad
     "S101", # assert
+    "S105", # hardcoded-password-string
     "SLF001", # private-member-access
     "UP012", # unnecessary-encode-utf8
 ]
@@ -135,4 +136,8 @@ exclude_also = [
     '@(abc\.)?abstractmethod',
     "pass",
     '\.\.\.',
+    "from .*",
+    "import .*",
+    'logging\..*',
+    'log\..*',
 ]

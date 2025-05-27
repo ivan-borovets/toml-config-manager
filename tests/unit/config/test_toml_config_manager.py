@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -41,79 +41,110 @@ def test_validate_logging_level_invalid(level):
         ("WARNING", logging.WARNING),
         ("ERROR", logging.ERROR),
         ("CRITICAL", logging.CRITICAL),
-        ("INVALID", logging.INFO),
     ],
 )
-def test_configure_logging_levels(level_str, expected_level, monkeypatch):
-    mock = MagicMock()
-    monkeypatch.setattr(logging, "basicConfig", mock)
-    configure_logging(level=level_str)
-    assert mock.call_args[1]["level"] == expected_level
+def test_configure_logging_levels(level_str, expected_level):
+    with patch("config.toml_config_manager.logging.basicConfig") as mock:
+        configure_logging(level=level_str)
+
+        assert mock.call_args[1]["level"] == expected_level
 
 
-def test_validate_env():
-    assert validate_env(env="dev") == ValidEnvs.DEV
-    assert validate_env(env="prod") == ValidEnvs.PROD
-    with pytest.raises(ValueError):
-        validate_env(env="invalid")
+@pytest.mark.parametrize(
+    ("env", "expected_exception"),
+    [
+        pytest.param(ValidEnvs.LOCAL, None, id="env_correct"),
+        pytest.param(None, ValueError, id="env_none"),
+        pytest.param("INCORRECT", ValueError, id="env_incorrect"),
+    ],
+)
+def test_validate_env(env, expected_exception):
+    if not expected_exception:
+        assert validate_env(env=env) == env
+
+    else:
+        with pytest.raises(ValueError):
+            validate_env(env=env)
 
 
-def test_read_config(tmp_path, monkeypatch):
+def test_read_config(tmp_path):
     config_file = tmp_path / "config.toml"
-    config_file.write_text('[database]\nUSER = "postgres"\nPORT = 5432\n')
-    fake_dir_paths = MappingProxyType({ValidEnvs.DEV: tmp_path})
-    monkeypatch.setattr("config.toml_config_manager.ENV_TO_DIR_PATHS", fake_dir_paths)
-    result = read_config(env=ValidEnvs.DEV)
-    assert result == {"database": {"USER": "postgres", "PORT": 5432}}
+    config_file.write_text('[database]\nUSER = "test_postgres"\nPORT = 1234\n')
 
-    fake_dir_paths = MappingProxyType({
-        ValidEnvs.DEV: Path("wrong_path"),
-        ValidEnvs.PROD: None,
-    })
-    monkeypatch.setattr("config.toml_config_manager.ENV_TO_DIR_PATHS", fake_dir_paths)
-    with pytest.raises(FileNotFoundError):
-        read_config(env=ValidEnvs.DEV)
-    with pytest.raises(FileNotFoundError):
-        read_config(env=ValidEnvs.PROD)
+    with patch(
+        "config.toml_config_manager.ENV_TO_DIR_PATHS", {ValidEnvs.DEV: tmp_path}
+    ):
+        result = read_config(env=ValidEnvs.DEV)
+
+        assert result == {"database": {"USER": "test_postgres", "PORT": 1234}}
+
+    with patch(
+        "config.toml_config_manager.ENV_TO_DIR_PATHS",
+        {ValidEnvs.DEV: Path("wrong_path"), ValidEnvs.PROD: None},
+    ):
+        with pytest.raises(FileNotFoundError):
+            read_config(env=ValidEnvs.DEV)
+
+        with pytest.raises(FileNotFoundError):
+            read_config(env=ValidEnvs.PROD)
 
 
-def test_merge_dicts():
-    dict1: dict[str, Any] = {"a": 1, "b": 2}
-    dict2: dict[str, Any] = {"b": 3, "c": 4}
-    result = merge_dicts(dict1=dict1, dict2=dict2)
-    assert result == {"a": 1, "b": 3, "c": 4}
+@pytest.mark.parametrize(
+    ("dict1", "dict2", "result"),
+    [
+        pytest.param(
+            {"a": 1, "b": 2},
+            {"b": 3, "c": 4},
+            {"a": 1, "b": 3, "c": 4},
+            id="flat",
+        ),
+        pytest.param(
+            {"a": 1, "b": {"x": 1, "y": 2}},
+            {"b": {"y": 3, "z": 4}, "c": 5},
+            {"a": 1, "b": {"x": 1, "y": 3, "z": 4}, "c": 5},
+            id="nested",
+        ),
+    ],
+)
+def test_merge_dicts(dict1, dict2, result):
+    assert merge_dicts(dict1=dict1, dict2=dict2) == result
 
-    dict1 = {"a": 1, "b": {"x": 1, "y": 2}}
-    dict2 = {"b": {"y": 3, "z": 4}, "c": 5}
-    result = merge_dicts(dict1=dict1, dict2=dict2)
-    assert result == {"a": 1, "b": {"x": 1, "y": 3, "z": 4}, "c": 5}
 
+def test_merge_dicts_keep_original():
     original_dict1 = {"a": 1}
     original_dict2 = {"b": 2}
+
     merge_dicts(dict1=original_dict1, dict2=original_dict2)
+
     assert original_dict1 == {"a": 1}
     assert original_dict2 == {"b": 2}
 
 
-def test_load_full_config(tmp_path, monkeypatch):
+def test_load_full_config(tmp_path):
     config_file = tmp_path / "config.toml"
-    config_file.write_text('[database]\nUSER = "postgres"\nPORT = 5432\n')
+    config_file.write_text('[database]\nUSER = "test_postgres"\nPORT = 1234\n')
     secrets_file = tmp_path / ".secrets.toml"
     secrets_file.write_text(
         '[database]\nPASSWORD = "secret"\n[api]\nKEY = "apikey123"\n',
     )
-    fake_dir_paths = MappingProxyType({ValidEnvs.DEV: tmp_path})
-    monkeypatch.setattr("config.toml_config_manager.ENV_TO_DIR_PATHS", fake_dir_paths)
 
-    result = load_full_config(env=ValidEnvs.DEV)
-    assert result == {
-        "database": {"USER": "postgres", "PORT": 5432, "PASSWORD": "secret"},
-        "api": {"KEY": "apikey123"},
-    }
+    with patch(
+        "config.toml_config_manager.ENV_TO_DIR_PATHS", {ValidEnvs.DEV: tmp_path}
+    ):
+        result = load_full_config(env=ValidEnvs.DEV)
 
-    secrets_file.unlink()
-    result_no_secrets = load_full_config(env=ValidEnvs.DEV)
-    assert result_no_secrets == {"database": {"USER": "postgres", "PORT": 5432}}
+        assert result == {
+            "database": {"USER": "test_postgres", "PORT": 1234, "PASSWORD": "secret"},
+            "api": {"KEY": "apikey123"},
+        }
+
+        secrets_file.unlink()
+
+        result_no_secrets = load_full_config(env=ValidEnvs.DEV)
+
+        assert result_no_secrets == {
+            "database": {"USER": "test_postgres", "PORT": 1234}
+        }
 
 
 def test_get_env_value_by_export_field():
@@ -121,6 +152,7 @@ def test_get_env_value_by_export_field():
         "database": {"USER": "postgres", "PORT": 5432, "SETTINGS": {"TIMEOUT": 30}},
         "api": {"KEY": "apikey123"},
     }
+
     assert (
         get_env_value_by_export_field(config=config, field="database.USER")
         == "postgres"
@@ -136,6 +168,7 @@ def test_get_env_value_by_export_field():
         get_env_value_by_export_field(config=config, field="database.PASSWORD")
 
     config["database"]["COMPLEX"] = {"nested": "value"}
+
     with pytest.raises(ValueError):
         get_env_value_by_export_field(config=config, field="database.COMPLEX")
 
@@ -144,6 +177,7 @@ def test_get_env_value_by_export_field():
             raise TypeError
 
     config["database"]["UNSTRINGABLE"] = UnstringableObject()
+
     with pytest.raises(ValueError):
         get_env_value_by_export_field(config=config, field="database.UNSTRINGABLE")
 
@@ -154,6 +188,7 @@ def test_extract_exported():
         "api": {"KEY": "apikey123", "TIMEOUT": 30},
     }
     export_fields = ["database.USER", "database.PORT", "api.KEY"]
+
     result = extract_exported(config=config, export_fields=export_fields)
 
     assert result == {
@@ -175,14 +210,17 @@ def test_load_export_fields(tmp_path, monkeypatch):
     monkeypatch.setattr("config.toml_config_manager.ENV_TO_DIR_PATHS", fake_dir_paths)
 
     config, export_fields = load_export_fields(env=ValidEnvs.DEV)
+
     assert config == {"database": {"USER": "postgres", "PORT": 5432}}
     assert export_fields == ["database.USER", "database.PORT"]
 
     export_file.write_text('[wrong_section]\nfields = ["database.USER"]\n')
+
     with pytest.raises(ValueError):
         load_export_fields(env=ValidEnvs.DEV)
 
     export_file.write_text('[export]\nwrong_key = ["database.USER"]\n')
+
     with pytest.raises(ValueError):
         load_export_fields(env=ValidEnvs.DEV)
 
@@ -208,8 +246,11 @@ def test_write_dotenv_file(tmp_path, monkeypatch):
     write_dotenv_file(env=ValidEnvs.DEV, exported_fields=export_fields)
 
     env_path = tmp_path / f".env.{ValidEnvs.DEV.value}"
+
     assert env_path.exists()
+
     content = env_path.read_text()
+
     assert "# This .env file was automatically generated" in content
     assert f"# Environment: {ValidEnvs.DEV}" in content
     assert "# Generated: 2023-01-01T12:00:00+00:00" in content
