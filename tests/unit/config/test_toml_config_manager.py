@@ -1,5 +1,7 @@
 import logging
+import os
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
@@ -11,6 +13,7 @@ from config.toml_config_manager import (
     ValidEnvs,
     configure_logging,
     extract_exported,
+    get_current_env,
     get_env_value_by_export_field,
     load_export_fields,
     load_full_config,
@@ -65,6 +68,21 @@ def test_validate_env(env, expected_exception):
     else:
         with pytest.raises(ValueError):
             validate_env(env=env)
+
+
+def test_get_current_env():
+    test_app_env_key = "TEST_APP_ENV_KEY"
+    test_app_env_value = "TEST_APP_ENV_VALUE"
+
+    class TestValidEnvs(StrEnum):
+        test_app_env_key = test_app_env_value
+
+    with (
+        patch("config.toml_config_manager.ENV_VAR_NAME", test_app_env_key),
+        patch.dict(os.environ, {test_app_env_key: test_app_env_value}),
+        patch("config.toml_config_manager.ValidEnvs", TestValidEnvs),
+    ):
+        assert get_current_env() == test_app_env_value
 
 
 def test_read_config(tmp_path):

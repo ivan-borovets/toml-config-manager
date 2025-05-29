@@ -10,11 +10,10 @@ from pydantic import (
 )
 
 from config.toml_config_manager import (
-    ENV_VAR_NAME,
     ValidEnvs,
     configure_logging,
+    get_current_env,
     load_full_config,
-    validate_env,
 )
 
 log = logging.getLogger(__name__)
@@ -84,11 +83,6 @@ class Secrets(BaseModel):
     secret_two: str = Field(alias="SECRET_TWO")
 
 
-def get_current_env() -> ValidEnvs:
-    env_value = os.environ.get(ENV_VAR_NAME)
-    return validate_env(env=env_value)
-
-
 class AppSettings(BaseModel):
     postgres: PostgresSettings
     sqla: SqlaSettings
@@ -109,7 +103,7 @@ def load_settings(env: ValidEnvs | None = None) -> AppSettings:
 
 
 if __name__ == "__main__":
-    configure_logging(level="INFO")
+    configure_logging()
 
     try:
         current_env = get_current_env()
