@@ -1,11 +1,11 @@
 import logging
 import os
-from typing import Literal, NewType, Self, cast
+from typing import Final, Literal
 
 from pydantic import (
     BaseModel,
     Field,
-    PostgresDsn as PydanticPostgresDsn,
+    PostgresDsn,
     field_validator,
 )
 
@@ -18,7 +18,8 @@ from config.toml_config_manager import (
 
 log = logging.getLogger(__name__)
 
-PostgresDsn = NewType("PostgresDsn", str)
+PORT_MIN: Final[int] = 1
+PORT_MAX: Final[int] = 65535
 
 
 class PostgresSettings(BaseModel):
@@ -40,28 +41,25 @@ class PostgresSettings(BaseModel):
     @field_validator("port")
     @classmethod
     def validate_port_range(cls, v: int) -> int:
-        if not 1 <= v <= 65535:
-            raise ValueError("Port must be between 1 and 65535")
+        if not PORT_MIN <= v <= PORT_MAX:
+            raise ValueError(f"Port must be between {PORT_MIN} and {PORT_MAX}")
         return v
 
     @property
-    def dsn(self) -> PostgresDsn:
-        return cast(
-            PostgresDsn,
-            str(
-                PydanticPostgresDsn.build(
-                    scheme=f"postgresql+{self.driver}",
-                    username=self.user,
-                    password=self.password,
-                    host=self.host,
-                    port=self.port,
-                    path=self.db,
-                ),
+    def dsn(self) -> str:
+        return str(
+            PostgresDsn.build(
+                scheme=f"postgresql+{self.driver}",
+                username=self.user,
+                password=self.password,
+                host=self.host,
+                port=self.port,
+                path=self.db,
             ),
         )
 
 
-class SqlaSettings(BaseModel):
+class SqlaEngineSettings(BaseModel):
     echo: bool = Field(alias="ECHO")
     echo_pool: bool = Field(alias="ECHO_POOL")
     pool_size: int = Field(alias="POOL_SIZE")
@@ -85,21 +83,16 @@ class Secrets(BaseModel):
 
 class AppSettings(BaseModel):
     postgres: PostgresSettings
-    sqla: SqlaSettings
+    sqla: SqlaEngineSettings
     logs: LoggingSettings
     secrets: Secrets | None = None
 
-    @classmethod
-    def from_toml(cls, env: ValidEnvs | None = None) -> Self:
-        if env is None:
-            env = get_current_env()
-        raw_config = load_full_config(env=env)
-        log.info("Reading config for environment: '%s'", env)
-        return cls.model_validate(raw_config)
-
 
 def load_settings(env: ValidEnvs | None = None) -> AppSettings:
-    return AppSettings.from_toml(env=env)
+    if env is None:
+        env = get_current_env()
+    raw_config = load_full_config(env=env)
+    return AppSettings.model_validate(raw_config)
 
 
 if __name__ == "__main__":
