@@ -1,8 +1,6 @@
 # PostgreSQL
 [postgres]
-USER = "local-postgres"
-PASSWORD = "local-changethis"
-DB = "local-app_pgdata"
+DB = "app_db_pg_local"
 HOST = "localhost"
 PORT = 5432
 DRIVER = "psycopg"
@@ -11,9 +9,10 @@ DRIVER = "psycopg"
 [sqla]
 ECHO = false
 ECHO_POOL = false
-POOL_SIZE = 50
-MAX_OVERFLOW = 10
+POOL_SIZE = 30
+MAX_OVERFLOW = 20
 
 # Logs
 [logs]
+# Can be set to "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
 LEVEL = "DEBUG"

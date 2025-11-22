@@ -1,6 +1,12 @@
 [build-system]
-requires = ["setuptools >= 80.0.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.13"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+sources = ["config"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["config"]
 
 [project]
 name = "toml-config-manager"
@@ -14,23 +20,68 @@ authors = [
 requires-python = ">=3.12.0"
 dependencies = [
     "pydantic>=2.11.4",
-    "rtoml>=0.12.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
-    "mypy>=1.15.0",
-    "pre-commit>=4.2.0",
-    "ruff>=0.11.10",
+    "mypy==1.17.0",
+    "pre-commit==4.2.0",
+    "ruff==0.12.5",
+    { include-group = "test" },
 ]
 test = [
-    "coverage>=7.8.1",
-    "pytest>=8.3.5",
+    "coverage==7.10.1",
+    "pytest==8.4.1",
+    "pytest-cov==6.2.1",
 ]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+exclude_also = [
+    "if __name__ == .__main__.:",
+    '@(abc\.)?abstractmethod',
+    "pass",
+    '\.\.\.',
+    "from .*",
+    "import .*",
+    'logging\..*',
+    'log\..*',
+]
+
+[tool.coverage.run]
+source = ["config", ]
+omit = ["**/__init__.py", ]
+concurrency = [
+    "multiprocessing",
+    "thread",
+]
+parallel = true
+branch = true
+
+[tool.mypy]
+files = [
+    "config",
+    "examples",
+    "tests",
+]
+strict = true
+ignore_missing_imports = true
+allow_subclassing_any = true
+disallow_untyped_defs = false
+plugins = [
+    "pydantic.mypy",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", ]
 
 [tool.ruff]
 line-length = 88
 preview = true  # experimental
+
+[tool.ruff.format]
+skip-magic-trailing-comma = false
 
 [tool.ruff.lint]
 select = [
@@ -93,51 +144,7 @@ ignore = [
     "UP012", # unnecessary-encode-utf8
 ]
 
-[tool.ruff.format]
-skip-magic-trailing-comma = false
-
 [tool.ruff.lint.isort]
 combine-as-imports = true
 force-wrap-aliases = true
 split-on-trailing-comma = true
-
-[tool.mypy]
-files = [
-    "config",
-    "examples",
-    "tests",
-]
-strict = true
-ignore_missing_imports = true
-allow_subclassing_any = true
-disallow_untyped_defs = false
-plugins = [
-    "pydantic.mypy",
-]
-
-[tool.pytest.ini_options]
-testpaths = ["tests", ]
-
-[tool.coverage.run]
-source = ["config", ]
-omit = ["**/__init__.py", ]
-concurrency = [
-    "multiprocessing",
-    "thread",
-]
-parallel = true
-branch = true
-
-[tool.coverage.report]
-show_missing = true
-skip_empty = true
-exclude_also = [
-    "if __name__ == .__main__.:",
-    '@(abc\.)?abstractmethod',
-    "pass",
-    '\.\.\.',
-    "from .*",
-    "import .*",
-    'logging\..*',
-    'log\..*',
-]

@@ -24,7 +24,6 @@ Designed as drop-in solution — just copy config directory to project root and 
 # Prerequisites for usage
 
 * Python 3.12
-* `rtoml` (`pip install rtoml`)
 
 ## Configuration Files
 
