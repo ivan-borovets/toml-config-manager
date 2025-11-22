@@ -1,6 +1,6 @@
 <p align="center">
-  <a href="https://codecov.io/gh/ivan-borovets/toml-to-dotenv">
-    <img src="https://codecov.io/gh/ivan-borovets/toml-to-dotenv/graph/badge.svg" alt="Codecov Coverage"/>
+  <a href="https://codecov.io/gh/ivan-borovets/toml-config-manager">
+    <img src="https://codecov.io/gh/ivan-borovets/toml-config-manager/graph/badge.svg" alt="Codecov Coverage"/>
   </a>
 </p>
 

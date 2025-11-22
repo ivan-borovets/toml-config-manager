@@ -231,12 +231,7 @@ def get_env_value_by_export_field(*, config: ConfigDict, field: str) -> str:
             f"got {type(current).__name__}",
         )
 
-    try:
-        return str(current)
-    except (TypeError, ValueError) as err:
-        raise ValueError(
-            f"Field '{field}' cannot be converted to string: {err!s}"
-        ) from err
+    return str(current)
 
 
 # DOTENV GENERATION
@@ -280,7 +275,7 @@ def write_dotenv_file(
 # ENTRY POINT
 
 
-def main() -> None:
+def main() -> None:  # pragma: no cover
     log_lvl_str = os.getenv(LOG_LEVEL_VAR_NAME, DEFAULT_LOG_LEVEL)
     log_lvl = validate_logging_level(level=log_lvl_str)
     configure_logging(level=log_lvl)

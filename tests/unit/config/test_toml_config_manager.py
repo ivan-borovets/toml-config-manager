@@ -2,9 +2,12 @@ import logging
 import textwrap
 from collections.abc import Iterator
 from copy import deepcopy
+from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+import toml_config_manager
 
 from config.toml_config_manager import (
     ENV_VAR_NAME,
@@ -12,7 +15,11 @@ from config.toml_config_manager import (
     LoggingLevel,
     ValidEnvs,
     configure_logging,
+    extract_export_fields_from_config,
     get_current_env,
+    get_env_value_by_export_field,
+    get_exported_env_variables,
+    load_export_fields,
     load_full_config,
     merge_dicts,
     read_config,
@@ -207,3 +214,282 @@ def test_full_loader_skips_missing_secrets(tmp_path: Path) -> None:
             "PORT": 5432,
         }
     }
+
+
+def test_existing_export_field_from_cfg_dict_is_exported() -> None:
+    config_dict = {
+        "db": {
+            "USER": "admin",
+            "PORT": 5432,
+        }
+    }
+
+    result = get_env_value_by_export_field(config=config_dict, field="db.PORT")
+
+    assert result == "5432"
+
+
+def test_non_existing_export_field_from_cfg_dict_raises_key_error() -> None:
+    config_dict = {
+        "db": {
+            "USER": "admin",
+            "PORT": 5432,
+        }
+    }
+
+    with pytest.raises(KeyError):
+        get_env_value_by_export_field(config=config_dict, field="db.HOST")
+
+
+def test_collection_type_export_field_from_cfg_dict_raises_value_error() -> None:
+    config_dict = {
+        "db": {
+            "USER": "admin",
+            "PORT": [5432],
+        }
+    }
+
+    with pytest.raises(ValueError):
+        get_env_value_by_export_field(config=config_dict, field="db.PORT")
+
+
+def test_export_fields_are_exported_from_config() -> None:
+    config_dict = {
+        "db": {
+            "USER": "admin",
+            "PORT": 5432,
+        }
+    }
+
+    results = extract_export_fields_from_config(
+        config=config_dict, export_fields=["db.USER", "db.PORT"]
+    )
+
+    assert results == {
+        "DB_USER": "admin",
+        "DB_PORT": "5432",
+    }
+
+
+def test_export_fields_are_loaded(tmp_path: Path) -> None:
+    export_file = tmp_path / "export.toml"
+    export_text = textwrap.dedent("""\
+        [export]
+        fields = [
+        "postgres.USER",
+        "postgres.PASSWORD",
+        "postgres.DB",
+        "postgres.PORT",
+        ]
+    """)
+    export_file.write_text(export_text, encoding="utf-8")
+
+    result = load_export_fields(
+        env=ValidEnvs.DEV,
+        dir_paths={ValidEnvs.DEV: tmp_path},
+    )
+
+    assert result == [
+        "postgres.USER",
+        "postgres.PASSWORD",
+        "postgres.DB",
+        "postgres.PORT",
+    ]
+
+
+def test_export_fields_with_wrong_section_raise_value_error(tmp_path: Path) -> None:
+    export_file = tmp_path / "export.toml"
+    export_text = textwrap.dedent("""\
+        [export-custom]
+        fields = [
+        "postgres.USER",
+        "postgres.PASSWORD",
+        "postgres.DB",
+        "postgres.PORT",
+        ]
+    """)
+    export_file.write_text(export_text, encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        load_export_fields(
+            env=ValidEnvs.DEV,
+            dir_paths={ValidEnvs.DEV: tmp_path},
+        )
+
+
+def test_export_fields_with_wrong_type_raise_value_error(tmp_path: Path) -> None:
+    export_file = tmp_path / "export.toml"
+    export_text = textwrap.dedent("""\
+        [export]
+        fields = [
+        "postgres.USER",
+        2,
+        "postgres.DB",
+        "postgres.PORT",
+        ]
+    """)
+    export_file.write_text(export_text, encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        load_export_fields(
+            env=ValidEnvs.DEV,
+            dir_paths={ValidEnvs.DEV: tmp_path},
+        )
+
+
+def test_export_fields_empty_raise_value_error(tmp_path: Path) -> None:
+    export_file = tmp_path / "export.toml"
+    export_text = textwrap.dedent("""\
+        [export]
+        fields = []
+    """)
+    export_file.write_text(export_text, encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        load_export_fields(
+            env=ValidEnvs.DEV,
+            dir_paths={ValidEnvs.DEV: tmp_path},
+        )
+
+
+def test_exported_env_variables_are_obtained_as_dict(tmp_path: Path) -> None:
+    # Arrange
+    env_dir = tmp_path / ValidEnvs.DEV
+    env_dir.mkdir()
+
+    config_file = env_dir / "config.toml"
+    config_text = textwrap.dedent("""\
+        [db]
+        USER = "admin"
+        PORT = 5432
+    """)
+    config_file.write_text(config_text, encoding="utf-8")
+
+    export_file = env_dir / "export.toml"
+    export_text = textwrap.dedent("""\
+        [export]
+        fields = [
+        "db.USER",
+        "db.PORT",
+        ]
+    """)
+    export_file.write_text(export_text, encoding="utf-8")
+
+    env_to_dir_paths = {
+        ValidEnvs.DEV: env_dir,
+    }
+
+    # Act
+    variables = get_exported_env_variables(
+        env=ValidEnvs.DEV, dir_paths=env_to_dir_paths
+    )
+
+    # Assert
+    assert variables == {
+        "DB_PORT": "5432",
+        "DB_USER": "admin",
+    }
+
+
+def test_write_dotenv_file_creates_expected_file_with_given_time(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Use `freezegun` next time"""
+    # Arrange
+    env = ValidEnvs.DEV
+    env_dir = tmp_path / env
+    env_dir.mkdir()
+
+    monkeypatch.setattr(
+        toml_config_manager,
+        "ENV_TO_DIR_PATHS",
+        {env: env_dir},
+        raising=False,
+    )
+    exported_fields = {
+        "POSTGRES_USER": "admin",
+        "POSTGRES_PORT": "5432",
+    }
+    generated_at = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+
+    fake_datetime = SimpleNamespace(
+        now=lambda tz=None: generated_at,  # noqa: ARG005
+    )
+    monkeypatch.setattr(
+        toml_config_manager,
+        "datetime",
+        fake_datetime,
+        raising=True,
+    )
+
+    # Act
+    toml_config_manager.write_dotenv_file(
+        env=env,
+        exported_fields=exported_fields,
+        generated_at=None,
+    )
+
+    # Assert
+    dotenv_path = env_dir / ".env.dev"
+    assert dotenv_path.is_file()
+
+    content = dotenv_path.read_text(encoding="utf-8")
+    lines = content.splitlines()
+    assert (
+        lines[0]
+        == "# This .env file was automatically generated by toml_config_manager."
+    )
+    assert lines[1].startswith("# Do not edit directly.")
+    assert "# Environment: dev" in lines[3]
+    assert "# Generated: 2025-01-01T12:00:00+00:00" in lines[4]
+
+    assert "POSTGRES_USER=admin" in lines
+    assert "POSTGRES_PORT=5432" in lines
+    assert content.endswith("\n")
+
+
+def test_write_dotenv_file_creates_expected_file_without_given_time(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Use `freezegun` next time"""
+    # Arrange
+    env = ValidEnvs.DEV
+    env_dir = tmp_path / env
+    env_dir.mkdir()
+
+    monkeypatch.setattr(
+        toml_config_manager,
+        "ENV_TO_DIR_PATHS",
+        {env: env_dir},
+        raising=False,
+    )
+    exported_fields = {
+        "POSTGRES_USER": "admin",
+        "POSTGRES_PORT": "5432",
+    }
+    generated_at = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+
+    # Act
+    toml_config_manager.write_dotenv_file(
+        env=env,
+        exported_fields=exported_fields,
+        generated_at=generated_at,
+    )
+
+    # Assert
+    dotenv_path = env_dir / ".env.dev"
+    assert dotenv_path.is_file()
+
+    content = dotenv_path.read_text(encoding="utf-8")
+    lines = content.splitlines()
+    assert (
+        lines[0]
+        == "# This .env file was automatically generated by toml_config_manager."
+    )
+    assert lines[1].startswith("# Do not edit directly.")
+    assert "# Environment: dev" in lines[3]
+    assert "# Generated: 2025-01-01T12:00:00+00:00" in lines[4]
+
+    assert "POSTGRES_USER=admin" in lines
+    assert "POSTGRES_PORT=5432" in lines
+    assert content.endswith("\n")

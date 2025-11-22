@@ -25,7 +25,7 @@ jobs:
 
       - name: Run tests for Codecov
         run: |
-          uv run pytest --cov=fastapi_error_map --cov-branch --cov-report=xml
+          uv run pytest --cov=config --cov-branch --cov-report=xml
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
@@ -45,6 +45,7 @@ jobs:
       - name: Test read_config.py with APP_ENV
         run: |
           export APP_ENV=local
+          export PYTHONPATH=$PWD
           uv run python examples/read_config.py
 
       - name: Test Docker build and run with config
