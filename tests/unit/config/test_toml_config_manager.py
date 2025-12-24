@@ -37,12 +37,12 @@ def clean_logging() -> Iterator[None]:
 
 
 @pytest.mark.parametrize("level", ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
-def test_validate_logging_level_valid(level):
+def test_validate_logging_level_valid(level: str) -> None:
     assert validate_logging_level(level=level) == level
 
 
 @pytest.mark.parametrize("level", ["", "debug", "INVALID_LEVEL", "INFOO"])
-def test_validate_logging_level_invalid(level):
+def test_validate_logging_level_invalid(level: str) -> None:
     with pytest.raises(ValueError):
         validate_logging_level(level=level)
 
